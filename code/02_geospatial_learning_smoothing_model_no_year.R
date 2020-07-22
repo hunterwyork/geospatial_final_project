@@ -22,13 +22,27 @@ library(boot)
 ##
 
 #pull in data and subset to the deep south
-data_melt <- fread("C:/Users/hyork/Desktop/ed_thesis/outputs/data_melt.csv")
-data_melt <- data_melt[prefix %in% c("ALL", "MWH", "MBL", "MAS")]
-data_melt <- data_melt[STNAM %in% c("FLORIDA", "GEORGIA", "ALABAMA", "MISSISSIPPI")]
+data_melt <- fread("/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/outputs/data_melt.csv")
 data_melt[, UNSDLEA := as.numeric(str_sub(LEAID, 1, -6))]
 data_melt[, STATEFP := as.numeric(str_sub(LEAID, 1, -6))]
 data_melt[, UNSDLEA := as.numeric(str_sub(LEAID, -5, -1))]
-#cast wide
+#
+subset_cb <- data.table(prefix = c("ALL", "MAM", "MAS", "MBL", "MHI", "MTR", "MWH", "F", "M", "CWD", "ECD", "LEP", "HOM", "MIG"),
+           subset = c("All Students", "American Indian/Alaska Native", "Asian/Pacific Islander",
+                      "Black", "Hispanic", "Two or More Races", "White", "Female", "Male", "Children With Disabilities",
+                      "Economically Disadvantaged", "Limited English Proficient", "Homeless Enrolled Students", "Migrant Students"))
+
+data_melt[, year := as.numeric(substr(year,1,2)) + 2000]
+
+#delete duplicated entries for 2016
+data_melt <- data_melt[!duplicated(data_melt[,.(STNAM, LEAID, subject, prefix, measure,grade, year, UNSDLEA, STATEFP)])]
+data_wide <- dcast(data_melt,  STNAM + STATEFP + UNSDLEA +LEAID + prefix + subject + grade + year  ~ measure, value.var = "value")
+#fwrite(data_wide, "/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/outputs/data_wide.csv")
+
+for(c.subset in unique(data_wide$prefix)){
+  print(c.subset)
+  fwrite(data_wide[prefix == c.subset], paste0("/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/outputs/data_wide_", c.subset, ".csv"))
+}
 
 #load school district shapefile
 shp <- read_sf("C:/Users/hyork/Desktop/ed_thesis/schooldistrict_sy1819_tl19.shp")

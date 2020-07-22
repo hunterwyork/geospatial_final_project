@@ -24,7 +24,9 @@ library(sf)
 library(dplyr)
 
 #
-data_append <- list.files("C:/Users/hyork/Desktop/ed_thesis", full.names = T, pattern = ".csv") %>% lapply(read.csv) %>% rbindlist(fill = T)
+data_append <- list.files("/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/reference", 
+                          full.names = T, pattern = "achievement") %>% 
+  lapply(read.csv) %>% rbindlist(fill = T)
 
 #melt
 data_melt <- melt(data_append, id.vars = c("STNAM", "LEAID"), measure.vars = names(data_append)[names(data_append) %like% "MTH|RL"])
@@ -55,9 +57,9 @@ data_melt[measure == "pctprof" & value %like% "LE", value := (0 + as.numeric(gsu
 data_melt[measure == "pctprof" & value %like% "LT", value := (0 + as.numeric(gsub("LT", "", value)) - 1)/2]
 data_melt[, c("upper", "lower") := NULL]
 data_melt[, value := as.numeric(value)]
-#fwrite(data_melt, "C:/Users/hyork/Desktop/ed_thesis/outputs/data_melt.csv")
-# data_melt <- fread("C:/Users/hyork/Desktop/ed_thesis/outputs/data_melt.csv")
-# 
+#fwrite(data_melt, "/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/outputs/data_melt.csv")
+
+
 # #subset to all races, white, black, and asian
 # data_melt <- data_melt[prefix %in% c("ALL", "MWH", "MBL", "MAS")]
 # data_melt[, UNSDLEA := as.numeric(str_sub(LEAID, 1, -6))]
@@ -74,14 +76,14 @@ data_melt[, value := as.numeric(value)]
 # prof_by_race_dev <- melt(avg_prof_by_race_wide, id.vars = c("STNAM", "LEAID", "UNSDLEA", "STATEFP"), measure.vars = c("abs_dev_mbl", "abs_dev_mas"))
 # 
 # #merge on shapefile
-# shp <- read_sf("C:/Users/hyork/Desktop/ed_thesis/schooldistrict_sy1819_tl19.shp")
+# shp <- read_sf("/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/reference/schooldistrict_sy1819_tl19.shp")
 # shp$STATEFP <- as.numeric(shp$STATEFP)
 # shp$UNSDLEA <- as.numeric(shp$UNSDLEA)
 # 
 # plot_data <- left_join(data.frame(prof_by_race_dev), shp[,c("UNSDLEA", "STATEFP", "NAME", "geometry")], by = c("UNSDLEA", "STATEFP"))
 # 
 # 
-# #saveRDS(plot_data, 'C:/Users/hyork/Desktop/ed_thesis/avg_prof_by_leaid_year_race.rds')
+# #saveRDS(plot_data, '/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/reference/avg_prof_by_leaid_year_race.rds')
 # 
 # ggplot(plot_data) + 
 #   geom_sf(aes(fill = value, geometry = geometry), lwd = 0) + 
