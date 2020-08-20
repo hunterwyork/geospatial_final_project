@@ -1,4 +1,10 @@
-##geospatial smoothing learning model
+########################################################################
+## Hunter York, hunterwyork@gmail.com
+#####################################
+## This code takes all outputs and makes final, paper ready figures.
+## It also has numberplugging code.
+########################################################################
+
 library(stringr)
 library(rlang)
 library(data.table)
@@ -149,7 +155,7 @@ gg1 <- ggscatterhist(
   graph_dat[subgroup != "asian" & subgroup != "native"], x = "single_mom", y = "lasy",
   color = "Subgroup", size = 1, alpha = .5, shape = 1,
   palette = brewer_pal(palette = "Set1", direction = -1)(5)[c(2,3,5)],
-  xlab = "% of Housholds Led By a Single Mother", ylab = "LASYs",
+  xlab = "% of Housholds Led By a Single Mother", ylab = "LAYS",
   margin.params = list(fill = "Subgroup", color = "black", size = 0.2),
   legend = "none"
 )
@@ -157,7 +163,7 @@ gg2 <- ggscatterhist(
   graph_dat, x = "median_income", y = "lasy",
   color = "Subgroup", size = 1, alpha = .5, shape = 1,
   palette = brewer_pal(palette = "Set1", direction = -1)(5),
-  xlab = "Median Income", ylab = "LASYs",
+  xlab = "Median Income", ylab = "LAYS",
   margin.params = list(fill = "Subgroup", color = "black", size = 0.2),
  legend = "none")
 
@@ -165,7 +171,7 @@ gg3 <- ggscatterhist(
   graph_dat[subgroup != "asian"& subgroup != "native"], x = "unemp", y = "lasy",
   color = "Subgroup", size = 1, alpha = .5, shape = 1,
   palette = brewer_pal(palette = "Set1", direction = -1)(5)[c(2,3,5)],
-  xlab = "Unemployment Rate", ylab = "LASYs",
+  xlab = "Unemployment Rate", ylab = "LAYS",
   margin.params = list(fill = "Subgroup", color = "black", size = 0.2),
   legend = "none"
 )
@@ -173,7 +179,7 @@ gg4 <- ggscatterhist(
   graph_dat[subgroup != "asian"& subgroup != "native"], x = "poverty", y = "lasy",
   color = "Subgroup", size = 1, alpha = .5, shape = 1,
   palette = brewer_pal(palette = "Set1", direction = -1)(5)[c(2,3,5)],
-  xlab = "% of Households in Poverty", ylab = "LASYs",
+  xlab = "% of Households in Poverty", ylab = "LAYS",
   margin.params = list(fill = "Subgroup", color = "black", size = 0.2),
   legend = "none"
 )
@@ -181,7 +187,7 @@ gg5 <- ggscatterhist(
   graph_dat, x = "salary_per_s", y = "lasy",
   color = "Subgroup", size = 1, alpha = .5, shape = 1,
   palette = brewer_pal(palette = "Set1", direction = -1)(5),
-  xlab = "Avg. Teacher Salary per Student (USD)", ylab = "LASYs",
+  xlab = "Avg. Teacher Salary per Student (USD)", ylab = "LAYS",
   margin.params = list(fill = "Subgroup", color = "black", size = 0.2),
   legend = "none"
 )
@@ -189,7 +195,7 @@ gg6 <- ggscatterhist(
   graph_dat[subgroup != "asian"& subgroup != "native"], x = "ses", y = "lasy",
   color = "Subgroup", size = 1, alpha = .5, shape = 1,
   palette = brewer_pal(palette = "Set1", direction = -1)(5)[c(2,3,5)],
-  xlab = "Socioeconomic Status", ylab = "LASYs",
+  xlab = "Socioeconomic Status", ylab = "LAYS",
   margin.params = list(fill = "Subgroup", color = "black", size = 0.2),
   legend = "none"
 )
@@ -198,7 +204,7 @@ gglegend <- ggscatterhist(
   graph_dat, x = "salary_per_s", y = "lasy",
   color = "Subgroup", size = 3, alpha = 1, shape = 1,
   palette = brewer_pal(palette = "Set1", direction = -1)(5),
-  xlab = "Avg. Teacher Salary per Student (USD)", ylab = "LASYs",
+  xlab = "Avg. Teacher Salary per Student (USD)", ylab = "LAYS",
   margin.params = list(fill = "Subgroup", color = "black", size = 0.2),
   legend = "bottom"
 )
@@ -370,7 +376,7 @@ tabler <- function(c.subgroup, c.data, c.pop){
   return(table)
 }
 
-lapply( c("asian", "black", "hispanic", "white", "all"),tabler, c.data = data_with_covs, c.pop = pops) %>% rbindlist() -> tables
+lapply( c("asian", "black", "hispanic","native", "white", "all"),tabler, c.data = data_with_covs, c.pop = pops) %>% rbindlist() -> tables
 
 tables <- tables[,.SD, .SDcols = c("subgroup", "population", "median_income", "mean_achievement", "salary_per_s","retention", "total_leaids")]
 percent <- function(x, digits = 2, format = "f", ...) {
@@ -891,6 +897,7 @@ na.replace(pops_race_wide, 0) -> pops_race_wide
 
 #merge on data
 plot_data <- merge(plot_data, pops_race_wide, by = "fips")
+plot_data[variable %like% "Change LAYS", value := value * 100]
 for(c.race in c("black", "hispanic")){
   plot_data[tolower(variable) %like% c.race & get(paste0("mask_", c.race)) == 1,value := NA]
   plot_data[tolower(variable) %like% c.race& get(paste0("mask_", c.race)) == 1,value_frac := NA]
@@ -973,17 +980,22 @@ gg1 <- ggplot(lasy_change_race[measure == "lasy"]) +
   geom_point(aes(x = value_white, y = value_hispanic, color = as.factor(NAME))) + theme_bw() + 
   geom_text_repel(aes(x = value_white, y = value_hispanic, color = as.factor(NAME), label = STUSPS)) +
   theme(legend.position = "none") + 
-  geom_abline(xintecept = 0,slope =1, linetype = "dotted")+
+  geom_vline(xintercept = 0, linetype = "dotted")+
+  geom_hline(yintercept = 0, linetype = "dotted")+
+  lims(x = c(-.25, 1.5), y = c(-.25, 1.5)) +
+  coord_equal() +
   xlab("Absolute Change (LAYS), White") + ylab("Absolute Change (LAYS), Hispanic")
 
 gg2 <- ggplot(lasy_change_race[measure == "lasy"]) +
   geom_point(aes(x = value_white, y = value_black, color = as.factor(NAME))) + theme_bw() + 
   geom_text_repel(aes(x = value_white, y = value_black, color = as.factor(NAME), label = STUSPS)) +
   theme(legend.position = "none") + 
-  geom_abline(xintecept = 0,slope =1, linetype = "dotted")+
-  xlab("Absolute Change (LAYS), White") + ylab("Absolute Change (LAYS), Black")
+  geom_vline(xintercept = 0, linetype = "dotted")+
+  lims(x = c(-.25, 1.5), y = c(-.25, 1.5)) +
+  geom_hline(yintercept = 0, linetype = "dotted")+
+  coord_equal() +  xlab("Absolute Change (LAYS), White") + ylab("Absolute Change (LAYS), Black")
 pdf("/home/j/temp/hyork/scatters_abs_change_race_06062020b.pdf", width = 10, height = 5)
-grid.arrange(gg1,gg2, nrow = 1, top = "Absolute Change in LAYS, Comparing Black and Hispanic Students to White Students, 2009-2016")
+grid.arrange(gg1,gg2, nrow = 1, top = "Absolute Change in LAYS, Comparing Black and Hispanic Students\nto White Students, 2009-2016")
 dev.off()
 
 
@@ -1297,18 +1309,25 @@ gg1 <- ggplot(lasy_agg_race[population > 1000 & subgroup != "All" & state_abb !=
   coord_flip() + 
   theme_bw() + 
   labs(x = "State or Territory", y = "LAYS", title = "Average Learning-Adjusted Years of Schooling (LAYS)",
-       color = "Race/Ethnicity", size = "Percent Share of Population", shape = "Aggregation Level")
+       color = "Race/Ethnicity", size = "Percent Share of Population", shape = "Aggregation Level") +
+  guides(shape = guide_legend(override.aes = list(size=4)))
   
 pdf("/home/j/temp/hyork/race_dotplot06112020.pdf", height = 10, width = 6)
 print(gg1)
 dev.off()
+
+gglegend <- function(x){
+  tmp <- ggplot_gtable(ggplot_build(x))
+  leg <- which(sapply(tmp$grobs, function(y) y$name) == "guide-box")
+  tmp$grobs[[leg]]
+}
 
 legend <- gglegend(gg1)
 
 gg1 <- ggplot(lasy_agg_race[population > 1000 & subgroup != "All" & state_abb != "" & !is.na(lasy)]) + 
   geom_line(aes(x = state_abb, y = lasy, group = state_abb), color = "gray20", size = .25)+
   geom_point(aes(x = state_abb, y = lasy, color = subgroup, group = subgroup, size = percent_pop, shape = "By Race/Ethnicity")) + 
-  geom_point(aes(x = state_abb, y = mean_lasy, shape = "All Races/Ethnicities" ), color = "black") +
+  geom_point(aes(x = state_abb, y = mean_lasy, shape = "All Races/Ethnicities" ), color = "black", size = 2.6) +
   scale_radius(limits = c(0,1), breaks = seq(0, 1, .2), range =c(1,5), labels = paste0(seq(0,100,20), "%"))+
   scale_color_brewer(palette = "Set1", direction = -1) +
   scale_shape_manual(values = c("By Race/Ethnicity" = 19,  "All Races/Ethnicities" = 18)) +
@@ -1322,7 +1341,7 @@ gg1 <- ggplot(lasy_agg_race[population > 1000 & subgroup != "All" & state_abb !=
 gg2 <- ggplot(lasy_agg_race[population > 1000 & subgroup != "All" & state_abb != "" & !is.na(mean_achievement)]) + 
   geom_line(aes(x = state_abb, y = mean_achievement, group = state_abb), color = "gray20", size = .25)+
   geom_point(aes(x = state_abb, y = mean_achievement, color = subgroup, group = subgroup, size = percent_pop, shape = "By Race/Ethnicity")) + 
-  geom_point(aes(x = state_abb, y = mean_ach, shape = "All Races/Ethnicities" ), color = "black") +
+  geom_point(aes(x = state_abb, y = mean_ach, shape = "All Races/Ethnicities" ), color = "black", size = 2.6) +
   scale_radius(limits = c(0,1), breaks = seq(0, 1, .2), range =c(1,5), labels = paste0(seq(0,100,20), "%"))+
   scale_color_brewer(palette = "Set1", direction = -1) +
   scale_shape_manual(values = c("By Race/Ethnicity" = 19,  "All Races/Ethnicities" = 18)) +
@@ -1335,7 +1354,7 @@ gg2 <- ggplot(lasy_agg_race[population > 1000 & subgroup != "All" & state_abb !=
 gg3 <- ggplot(lasy_agg_race[population > 1000 & subgroup != "All" & state_abb != "" & !is.na(yos)]) + 
   geom_line(aes(x = state_abb, y = yos, group = state_abb), color = "gray20", size = .25)+
   geom_point(aes(x = state_abb, y = yos, color = subgroup, group = subgroup, size = percent_pop, shape = "By Race/Ethnicity")) + 
-  geom_point(aes(x = state_abb, y = mean_yos, shape = "All Races/Ethnicities" ), color = "black") +
+  geom_point(aes(x = state_abb, y = mean_yos, shape = "All Races/Ethnicities" ), color = "black", size = 2.6) +
   scale_radius(limits = c(0,1), breaks = seq(0, 1, .2), range =c(1,5), labels = paste0(seq(0,100,20), "%"))+
   scale_color_brewer(palette = "Set1", direction = -1) +
   scale_shape_manual(values = c("By Race/Ethnicity" = 19,  "All Races/Ethnicities" = 18)) +

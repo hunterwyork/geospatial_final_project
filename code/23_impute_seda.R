@@ -1,3 +1,11 @@
+########################################################################
+## Hunter York, hunterwyork@gmail.com
+#####################################
+## This code fills in missing years of information for each school district
+## grade, subgroup, subject combination.
+########################################################################
+
+
 # imputation model
 library(stringr)
 library(rlang)
@@ -18,21 +26,32 @@ library(haven)
 registerDoParallel(cores=5)
 cores <- 5
 
+# pull in environmental variables
 task_id <- as.integer(Sys.getenv("SGE_TASK_ID"))
 codes <- fread("/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/ref/seda_codes_fips.csv")
-codes <- codes[code == "native"]
 c.subset <- codes[task_id, code]
 c.fip <- codes[task_id, fip]
 
-#read data
+
+########################################################################
+## Input SEDA data, shapefiles
+########################################################################
+
+#read data and subset to the state in question
 data <- fread(paste0("/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/inputs/seda_gcs_long.csv"))
 data <- data[fips == c.fip]
-#read ideal full list of school dists
+
+#read ideal full list of school dists. This is obviously significantly more than what's included in the data
+#this is a simplified shapefile for faster loading. There are missing slivers that make this less ideal for zoomed in views
 shp <- readRDS("/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/reference/schooldistrict_sy1819_tl19_simp.rds")
 # "/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/reference/2013_Unified_Elementary_SD.shp" %>% 
 #   read_sf() -> shp
+
+
+#coerce the shapefile to what we need. I subset to all school districts that have a high grade of 12, reducing some smaller 
+#elementary-only school districts. This was done for simplicity's sake but should probably be redone to be exhaustive and non-overlapping
+#though the shapefile is unified districts, there is still a lot going on that causes many shapes to overlap
 shp <- shp[as.numeric(shp$STATEFP) == c.fip, ]
-#add blank rows for school districts missing from data
 shp <- data.table(shp)
 shp[, leaidC := as.numeric(as.character(GEOID))]
 shp[, leanm := NAME]
@@ -40,6 +59,8 @@ shp[, fips := as.numeric(STATEFP)]
 shp <- shp[!is.na(leaidC), ]
 shp <- shp[shp$HIGRADE == "12",]
 
+
+#add blank rows to SEDA data for school districts missing from data
 dt_fill <- data.table(expand.grid(leaidC = unique(c(unique(shp$leaidC), unique(data$leaidC))),
                                   grade = unique(data$grade),
                                   year = 2009:2016,
@@ -49,9 +70,11 @@ dt_fill <- merge(dt_fill, shp[,.(leaidC, fips)], by = "leaidC", all.x = T)
 dt_fill[is.na(fips), fips := as.numeric(str_sub(leaidC,1, -6))]
 dt_fill <- merge(dt_fill, unique(data[,.(fips, stateabb)]), by = "fips", all.x = T)
 data <- merge(data, dt_fill, all = T, by = names(dt_fill))
-#read covs 
 
-#now finance covariates
+########################################################################
+# Pull in school finance covariates, impute where possible
+########################################################################
+
 "/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/inputs/" %>% 
   list.files(., full.names = T, pattern = "sdf|SDF|Sdf") %>% 
   lapply(., function(x){data.table(read.delim(x))}) %>% 
@@ -62,19 +85,29 @@ finance_cov <- finance_cov[FIPST == c.fip]
 finance_cov <- finance_cov[,.(LEAID,Z35, MEMBERSCH,TOTALEXP, YEAR)]
 finance_cov[,leaidC := as.numeric(as.character(LEAID))]
 finance_cov[, LEAID := NULL]
+
+#standardize the year variable
 finance_cov[, year := 2000 + as.numeric(YEAR)]
-#expand to include all years
+
+#expand to include all years, when some years are missing
 finance_dt <- data.table(expand.grid(leaidC = unique(c(as.numeric(as.character(data$leaidC)), unique(finance_cov$leaidC))), year = 2009:2016))
 finance_cov <- merge(finance_cov, finance_dt, all = T, by = c("leaidC", "year"))
 finance_cov[, YEAR := NULL]
+
+#standardize variables, remove NA vals
 finance_cov[Z35 %in% c(-2, -1, 0), Z35 := NA]
 finance_cov[MEMBERSCH %in% c(-2, -1, 0), MEMBERSCH := NA]
 finance_cov[TOTALEXP%in% c(-2, -1, 0), TOTALEXP := NA]
+
+#create a salary per student variable
 finance_cov[,salary_per_s := Z35/MEMBERSCH]
 finance_cov <- finance_cov[,.(leaidC, year, salary_per_s)]
+
+#remove outlier values. This is a non-robust method and can be improved upon
 finance_cov[salary_per_s < 100, salary_per_s := NA]
 finance_cov[salary_per_s > quantile(finance_cov$salary_per_s, .95, na.rm = T), salary_per_s := quantile(finance_cov$salary_per_s, .95, na.rm = T)]
 
+#linearly impute missing values
 finance_imputr = function(c.leaidC, data){
   print(c.leaidC)
   dt = data[leaidC == c.leaidC]
@@ -87,6 +120,10 @@ finance_imputr = function(c.leaidC, data){
 finance_cov <- rbindlist(mclapply(unique(finance_cov$leaidC), finance_imputr, data = finance_cov, mc.cores = 4), fill = T)
 finance_cov[salary_per_s < 100, salary_per_s := 100]
 
+########################################################################
+# Now load demographic variables from the census/ACS
+########################################################################
+
 #load census vars
 census_covs_wide <- "/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/ref/census_covs_wide.csv" %>% fread()
 
@@ -94,6 +131,7 @@ pops <- census_covs_wide[measure == "population"]
 
 incomes <- census_covs_wide[measure == "median_income"]
 
+#subset to only appropriate columns, white or all is used as referent group
 if(c.subset %in% c("asian", "black", "hispanic", "native", "all")){
   data <- data[subgroup %in% c(c.subset, "white")]
   #if(c.subset != "native"){
@@ -116,21 +154,28 @@ census_covs_merge$variable <- NULL
 census_covs_merge <- dcast(census_covs_merge, GEOID + subgroup ~ measure, value.var = "value", fun.aggregate = function(x){mean(x, na.rm = T)})
 census_covs_merge[, leaidC := as.numeric(as.character(GEOID))]
 census_covs_merge[, GEOID := NULL]
-#merge on covariates
+
+#merge data on covariates
 data_covs <- merge(data,finance_cov, by = c("year", "leaidC"), all.x = T)
 data_covs <- merge(data_covs,census_covs_merge, by = c("subgroup", "leaidC"), all.x = T)
 
+#write 
 dir.create("/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/inputs_with_covs/")
 fwrite(data_covs[subgroup == c.subset],
        paste0("/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/inputs_with_covs/", c.subset, "_", c.fip,".csv"))
 
+#remove these even though they could be useful for modelling
 data_covs <-data_covs[,-c("mean_achievement_se", "sample_size")]
 
+#cleanup
 data_covs[is.na(median_income), median_income := NA] 
 data_covs[is.na(prop_median_income), prop_median_income := NA] 
+
+#creat earchived dataset for recordkeeping
 data_covs_arch <- copy(data_covs)
 ##################################################
-#impute school dists with missing years
+#impute school dists with missing years using two
+#step algorithm, also generate holdouts for OOSPV
 ##################################################
 
 output_list <- list()

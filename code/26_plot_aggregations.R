@@ -1,4 +1,9 @@
-##geospatial smoothing learning model
+########################################################################
+## Hunter York, hunterwyork@gmail.com
+#####################################
+## This code plots aggregated data.
+########################################################################
+
 library(stringr)
 library(rlang)
 library(data.table)

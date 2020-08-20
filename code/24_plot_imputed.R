@@ -1,4 +1,9 @@
-##geospatial smoothing learning model
+########################################################################
+## Hunter York, hunterwyork@gmail.com
+#####################################
+## This code plots imputed data.
+########################################################################
+
 library(stringr)
 library(rlang)
 library(data.table)
@@ -46,7 +51,7 @@ states_shp <- st_transform(states_shp, st_crs(shp)$proj4string)
 states_shp <- states_shp[states_shp$STATEFP %in% unique(shp$STATEFP),]
 
 c.grade <- 3
-c.year <- 2011
+c.year <- 2015
 #plot all vals
 
 plottr <- function(c.grade){

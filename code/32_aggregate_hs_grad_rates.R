@@ -1,4 +1,10 @@
-##geospatial smoothing learning model
+########################################################################
+## Hunter York, hunterwyork@gmail.com
+#####################################
+## This code take imputed high school advancement data and aggregates it
+## much like the learning aggregation data script.
+########################################################################
+
 library(stringr)
 library(rlang)
 library(data.table)

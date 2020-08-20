@@ -1,4 +1,11 @@
-##geospatial smoothing learning model
+########################################################################
+## Hunter York, hunterwyork@gmail.com
+#####################################
+## This code takes final outputs: learning data, and high school retention
+## data, combines them into metrics of years of schooling, learning-adj
+## usted years of schooling, and grades above or below expected (learning).
+########################################################################
+
 library(stringr)
 library(rlang)
 library(data.table)
@@ -15,7 +22,7 @@ library(parallel)
 cores <- 10
 
 paste0("/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/imputed_data_retent/") %>% list.files(., full.names = T) %>% 
-  lapply(., fread) %>% rbindlist() -> retention
+  lapply(., fread) %>% rbindlist(., fill = T) -> retention
 retention <- retention[subgroup %in% c("asian", "all", "white", "black", "hispanic", "native")]
 
 setnames(retention, "mean_achievement", "retention")

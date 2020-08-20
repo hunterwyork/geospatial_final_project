@@ -1,4 +1,11 @@
-##geospatial smoothing learning model
+########################################################################
+## Hunter York, hunterwyork@gmail.com
+#####################################
+## This code pulls in out of sample predictive validity estimates and
+## compares them to known truths to derive metrics of performance of the model
+## 
+########################################################################
+
 library(stringr)
 library(rlang)
 library(data.table)

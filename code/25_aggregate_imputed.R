@@ -1,4 +1,10 @@
-##geospatial smoothing learning model
+########################################################################
+## Hunter York, hunterwyork@gmail.com
+#####################################
+## This code aggregates imputed data (saved by state) into one file. 
+## It also makes aggregations by year, grade, etc.
+########################################################################
+
 library(stringr)
 library(rlang)
 library(data.table)

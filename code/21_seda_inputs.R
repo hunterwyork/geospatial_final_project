@@ -1,3 +1,10 @@
+########################################################################
+## Hunter York, hunterwyork@gmail.com
+#####################################
+## This code pulls in all measured data used for this project. Data
+## are sourced from SEDA, the ACS, the decennial Census, and CCD.
+########################################################################
+
 library(stringr)
 library(rlang)
 library(haven)
@@ -12,11 +19,14 @@ library(ggplot2)
 library(gridExtra)
 library(tidycensus, lib.loc = "/home/j/temp/hyork/rlibs")
 
+########################################################################
+## Pull in SEDA Data
+########################################################################
 
 #import seda data
 "/home/j/temp/hyork/seda_geodist_long_gcs_v30.dta" %>% read_dta() %>% data.table()-> seda_gcs
 
-#cast long
+#cast long and rename variables
 seda_long <- melt(seda_gcs, id.vars = c("leaidC", "leanm", "fips", "stateabb", "grade", "year", "subject"))
 seda_long[variable %like% "totgyb", measure := "sample_size"]
 seda_long[variable %like% "mn", measure := "mean_achievement"]
@@ -38,8 +48,9 @@ seda_long[variable %like% "mfg", subgroup := "m_fm_gap"]
 seda_long[variable %like% "neg", subgroup := "ecd_not_gap"]
 seda_long$variable <- NULL
 
-#standardize by subtractin grade
+#standardize by subtracting grade (the value is in grade equivalents, and we're converting it to grade equivalent - grade)
 seda_long[measure == "mean_achievement" & !subgroup %like% "gap", value := value - grade]
+
 #cast wide by measure
 seda_long <- dcast(seda_long, ... ~ measure, value.var = "value")
 
@@ -56,7 +67,10 @@ for(c.subgroup in unique(seda_long$subgroup)){
                    paste0("/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/inputs/seda_gcs_long_", c.subgroup, ".csv"))
 }
 
-#
+########################################################################
+## Pull in ACS and Supplementary file 1 data
+########################################################################
+
 #now acs school district data
 key <- "75d545894dbeac65a495e1d0ab7d2ae68513362d"
 acs_vars<-load_variables(year = 2013, "acs5", cache = TRUE)
@@ -103,8 +117,9 @@ for(c.race in c("all", "asian", "black", "hispanic", "native", "white")){
 
 
 
-
-#load in ccd data
+########################################################################
+## Now pull in common core data
+########################################################################
 #load in ccd data
 c("/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/reference/ccd_lea_052_1617_l_2a_11212017.csv",
   "/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/reference/ccd_lea_052_1718_l_1a_083118.csv",
@@ -113,7 +128,7 @@ c("/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_p
 
 ccd <- ccd[,.(LEAID, SCHOOL_YEAR,SEX, RACE_ETHNICITY, GRADE, STUDENT_COUNT, TOTAL_INDICATOR, LEA_NAME)]
 
-ccd <-ccd[!LEAID %in% unique(census_covs_wide[measure == "population" & !is.na(all)]$GEOID)]
+#Standardize variables
 ccd <- ccd[,.(STUDENT_COUNT = mean(STUDENT_COUNT, na.rm = T)), by = .(LEAID, SEX, RACE_ETHNICITY, GRADE, TOTAL_INDICATOR, LEA_NAME)]
 ccd[is.nan(STUDENT_COUNT), STUDENT_COUNT := NA]
 ccd[, all := mean(STUDENT_COUNT[TOTAL_INDICATOR == "Education Unit Total"], na.rm = T), by = LEAID]
@@ -121,15 +136,22 @@ ccd <- ccd[TOTAL_INDICATOR %like% "Category Set A"]
 ccd[, race_count := sum(STUDENT_COUNT, na.rm = T), .(RACE_ETHNICITY, LEAID)]
 ccd <- ccd[,.(LEAID, RACE_ETHNICITY, LEA_NAME, all, race_count)]
 ccd <- unique(ccd)
+
+# rename race bins
 ccd[ RACE_ETHNICITY %like% "Asian", race := "asian"]
 ccd[RACE_ETHNICITY %like% "Native", race := "native"]
 ccd[ RACE_ETHNICITY %like% "Black", race := "black"]
 ccd[RACE_ETHNICITY %like% "Hispanic", race := "hispanic"]
 ccd[RACE_ETHNICITY %like% "White", race := "white"]
+
+
 ccd <- ccd[complete.cases(ccd)]
 ccd[,RACE_ETHNICITY := NULL]
 
+
+# replace na values with 0, even though there is likely some suppression of small numbers making NA = <5
 ccd <- dcast(ccd, ... ~ race, value.var = "race_count", fun.aggregate = sum)
+library(gtools)
 ccd <- na.replace(ccd, 0)
 for(c.race in c("all", "asian", "black", "hispanic", "native", "white")){
   ccd[, paste0("prop_", c.race):= get(c.race)/all]
@@ -137,12 +159,15 @@ for(c.race in c("all", "asian", "black", "hispanic", "native", "white")){
 setnames(ccd, c("LEAID", "LEA_NAME"), c("GEOID", "NAME"))
 ccd[, measure := "population"]
 ccd[, ccd := 1]
+
+#write ccd data
+fwrite(ccd, "/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/ref/ccd_pops_for_agg.csv")
 census_covs_wide[, ccd := 0]
 ccd <- ccd[!GEOID %in% unique(census_covs_wide$GEOID)]
 census_covs_wide <- rbind(ccd, census_covs_wide, fill = T)
 
 
-
+#write combined file of census and ccd data
 fwrite(census_covs_wide, "/home/j/WORK/01_covariates/02_inputs/education/update_2020/geospatial_final_project/ref/census_covs_wide.csv")
 
 

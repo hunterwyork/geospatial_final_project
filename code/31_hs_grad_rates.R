@@ -1,3 +1,11 @@
+########################################################################
+## Hunter York, hunterwyork@gmail.com
+#####################################
+## This code prepares high school population stock data, turns it into
+## a modelable entity (probability of advancement) and merges this data
+## on covariate data.
+########################################################################
+
 library(stringr)
 library(haven)
 library(data.table)

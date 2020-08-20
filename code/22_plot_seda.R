@@ -1,4 +1,9 @@
-##geospatial smoothing learning model
+########################################################################
+## Hunter York, hunterwyork@gmail.com
+#####################################
+## This code does no processing. It just graphs all available SEDA data.
+########################################################################
+
 library(stringr)
 library(rlang)
 library(data.table)
